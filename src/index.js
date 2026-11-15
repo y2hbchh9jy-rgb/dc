@@ -20,7 +20,17 @@ if (config.membersIntent) intents.push(GatewayIntentBits.GuildMembers);
 else console.warn('UYARI: MEMBERS_INTENT kapalı — raid koruması ve silinen rollerin üyelere geri verilmesi çalışmaz.');
 
 const client = new Client({ intents });
-const store = new Store(config.dataFile);
+let store;
+try {
+  store = new Store(config.dataFile);
+} catch (e) {
+  if (!/locked/i.test(e.message)) throw e;
+  console.error(
+    'Bot zaten çalışıyor: veritabanı başka bir SentinelGuard süreci tarafından kullanılıyor.\n' +
+      'Aynı anda yalnızca TEK kopya çalışmalı. Diğer kopyayı durdurun ya da yalnızca onu kullanın.',
+  );
+  process.exit(1);
+}
 const counter = new SlidingWindowCounter(config.breakerWindowMs);
 const backup = createBackup({ store });
 const guard = createGuard({ client, store, counter, config, backup });

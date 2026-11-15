@@ -49,7 +49,13 @@ export class Store {
       fs.mkdirSync(path.dirname(file), { recursive: true });
     }
     this.db = new DatabaseSync(file);
+    if (file !== ':memory:') {
+      // Tek örnek kilidi: veritabanı bu süreçte münhasıran tutulur. Aynı dosyayı açmaya çalışan
+      // ikinci bir bot süreci "database is locked" hatasıyla hemen durur (bkz. index.js).
+      this.db.exec('PRAGMA locking_mode = EXCLUSIVE;');
+    }
     this.db.exec(SCHEMA);
+    this.db.exec('BEGIN IMMEDIATE; COMMIT;');
   }
 
   #q(sql) {

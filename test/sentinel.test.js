@@ -447,3 +447,26 @@ test('lockdown: izinleri kapatır ve önceki durumu birebir geri yükler', async
   assert.deepEqual([c.state.allow, c.state.deny], [0n, 0n]);
   assert.equal(store.get(G, 'lockdown'), null);
 });
+
+test('tek örnek kilidi: aynı veritabanı dosyasını ikinci bir süreç açamaz', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { spawnSync } = await import('node:child_process');
+  const dir = mkdtempSync(join(tmpdir(), 'sg-'));
+  const file = join(dir, 'a.db');
+  const first = new Store(file);
+  first.set(G, 'monitor', false);
+  const child = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', 'src/index.js'], {
+    env: { ...process.env, DISCORD_TOKEN: 'x', DATA_FILE: file },
+    encoding: 'utf8',
+    timeout: 15_000,
+  });
+  assert.equal(child.status, 1);
+  assert.match(child.stderr, /Bot zaten çalışıyor/);
+  first.db.close();
+  const second = new Store(file); // kilit bırakılınca yeniden açılır, veri yerinde
+  assert.equal(second.get(G, 'monitor'), false);
+  second.db.close();
+  rmSync(dir, { recursive: true, force: true });
+});
